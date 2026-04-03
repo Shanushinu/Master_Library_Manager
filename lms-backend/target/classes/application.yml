@@ -1,0 +1,57 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:lms_db}
+    username: ${PGUSER:postgres}
+    password: ${PGPASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    date-format: yyyy-MM-dd'T'HH:mm:ss
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:MySecretKeyForLMSSystemThatIsAtLeast32CharactersLongAndSecure}
+    expiration: 86400000
+  fine:
+    rate-per-day: 0.50
+    max-fine: 50.00
+  borrowing:
+    college:
+      max-books: 5
+      loan-days: 21
+      renewals: 1
+    school:
+      max-books: 3
+      loan-days: 14
+      renewals: 1
+    faculty:
+      max-books: 10
+      loan-days: 30
+      renewals: 2
+    general:
+      max-books: 4
+      loan-days: 21
+      renewals: 1
+
+logging:
+  level:
+    com.lms: DEBUG
+    org.springframework.security: WARN
