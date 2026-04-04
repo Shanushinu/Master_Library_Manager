@@ -5,8 +5,8 @@
  * Library Management System API - Java Spring Boot Backend
  * OpenAPI spec version: 1.0.0
  */
+import type { CategoryNode } from "./categoryNode";
 
-export interface HealthStatus {
-  status: string;
-  service?: string;
+export interface CategoryTree {
+  categories: CategoryNode[];
 }

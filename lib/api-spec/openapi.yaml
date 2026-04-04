@@ -2,21 +2,35 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: Library Management System API - Java Spring Boot Backend
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: books
+    description: Book catalog management
+  - name: loans
+    description: Book loan operations
+  - name: reservations
+    description: Book reservation operations
+  - name: reports
+    description: Reports and analytics
+  - name: recommendations
+    description: Book recommendations
+  - name: admin
+    description: Admin operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +38,1066 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login user and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+
+  /books/search:
+    get:
+      operationId: searchBooks
+      tags: [books]
+      summary: Search and filter books
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: subcategory
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Books found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookPage"
+
+  /books/categories:
+    get:
+      operationId: getCategories
+      tags: [books]
+      summary: Get all book categories with subcategories
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Category tree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryTree"
+
+  /books/category/{main}/subcategories:
+    get:
+      operationId: getCategorySubcategories
+      tags: [books]
+      summary: Get subcategories for a main category
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: main
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subcategories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryNode"
+
+  /books/category/{main}:
+    get:
+      operationId: getBooksByCategory
+      tags: [books]
+      summary: Get books by main category
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: main
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Books in category
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookResponse"
+
+  /books/{id}:
+    get:
+      operationId: getBook
+      tags: [books]
+      summary: Get book by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookResponse"
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /books:
+    post:
+      operationId: createBook
+      tags: [books]
+      summary: Add a new book (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookRequest"
+      responses:
+        "201":
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookResponse"
+
+  /books/{id}/update:
+    put:
+      operationId: updateBook
+      tags: [books]
+      summary: Update a book (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookRequest"
+      responses:
+        "200":
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookResponse"
+
+  /loans/checkout:
+    post:
+      operationId: checkoutBook
+      tags: [loans]
+      summary: Checkout a book to a user (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "201":
+          description: Book checked out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanResponse"
+        "409":
+          description: Book not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Borrowing limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /loans/{id}/return:
+    post:
+      operationId: returnBook
+      tags: [loans]
+      summary: Return a book (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Book returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanResponse"
+
+  /loans/{id}/renew:
+    post:
+      operationId: renewLoan
+      tags: [loans]
+      summary: Renew a loan
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Loan renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanResponse"
+
+  /loans/my:
+    get:
+      operationId: getMyLoans
+      tags: [loans]
+      summary: Get current user's loans
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User's loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LoanResponse"
+
+  /loans:
+    get:
+      operationId: getAllLoans
+      tags: [loans]
+      summary: Get all loans (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: All loans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoanPage"
+
+  /loans/overdue:
+    get:
+      operationId: getOverdueLoans
+      tags: [loans]
+      summary: Get all overdue loans (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Overdue loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LoanResponse"
+
+  /reservations:
+    post:
+      operationId: placeReservation
+      tags: [reservations]
+      summary: Place a book reservation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationRequest"
+      responses:
+        "201":
+          description: Reservation placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationResponse"
+    get:
+      operationId: getAllReservations
+      tags: [reservations]
+      summary: Get all reservations (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All reservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReservationResponse"
+
+  /reservations/{id}:
+    delete:
+      operationId: cancelReservation
+      tags: [reservations]
+      summary: Cancel a reservation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Reservation cancelled
+
+  /reservations/my:
+    get:
+      operationId: getMyReservations
+      tags: [reservations]
+      summary: Get current user's reservations
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User's reservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReservationResponse"
+
+  /reports/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [reports]
+      summary: Get dashboard statistics (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /reports/overdue:
+    get:
+      operationId: getOverdueReport
+      tags: [reports]
+      summary: Get overdue report (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Overdue report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LoanResponse"
+
+  /recommendations:
+    post:
+      operationId: createRecommendation
+      tags: [recommendations]
+      summary: Recommend a book (Faculty/Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendationRequest"
+      responses:
+        "201":
+          description: Recommendation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationResponse"
+
+  /recommendations/pending:
+    get:
+      operationId: getPendingRecommendations
+      tags: [recommendations]
+      summary: Get pending recommendations (Librarian/Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending recommendations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecommendationResponse"
+
+  /recommendations/my:
+    get:
+      operationId: getMyRecommendations
+      tags: [recommendations]
+      summary: Get current user's recommendations
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User recommendations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecommendationResponse"
+
+  /admin/users:
+    get:
+      operationId: getAllUsers
+      tags: [admin]
+      summary: Get all users (Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+
+  /admin/users/{id}/role:
+    post:
+      operationId: changeUserRole
+      tags: [admin]
+      summary: Change user role (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeRoleRequest"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+
+  /admin/audit:
+    get:
+      operationId: getAuditLogs
+      tags: [admin]
+      summary: Get recent audit logs (Admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogResponse"
+
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
+        service:
+          type: string
       required:
         - status
 
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        userId:
+          type: integer
+      required:
+        - token
+        - email
+        - name
+        - role
+        - userId
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [ROLE_ADMIN, ROLE_LIBRARIAN, ROLE_FACULTY, ROLE_COLLEGE_STUDENT, ROLE_SCHOOL_STUDENT, ROLE_GENERAL_PATRON]
+        collegeName:
+          type: ["string", "null"]
+        schoolGrade:
+          type: ["string", "null"]
+        parentEmail:
+          type: ["string", "null"]
+      required:
+        - email
+        - password
+        - name
+        - role
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        role:
+          type: string
+        collegeName:
+          type: ["string", "null"]
+        schoolGrade:
+          type: ["string", "null"]
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - name
+        - role
+        - enabled
+
+    BookRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: ["string", "null"]
+        mainCategory:
+          type: string
+          enum: [COMPETITIVE_EXAM, COLLEGE, SCHOOL, COMIC, HISTORY, NON_FICTION, FICTION, OTHER]
+        subCategory:
+          type: string
+        publicationYear:
+          type: ["integer", "null"]
+        publisher:
+          type: ["string", "null"]
+        edition:
+          type: ["string", "null"]
+        totalCopies:
+          type: integer
+          minimum: 1
+        locationShelf:
+          type: ["string", "null"]
+        language:
+          type: ["string", "null"]
+        referenceOnly:
+          type: boolean
+          default: false
+        description:
+          type: ["string", "null"]
+      required:
+        - title
+        - author
+        - mainCategory
+        - subCategory
+        - totalCopies
+
+    BookResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: ["string", "null"]
+        mainCategory:
+          type: string
+        mainCategoryDisplay:
+          type: string
+        subCategory:
+          type: string
+        publicationYear:
+          type: ["integer", "null"]
+        publisher:
+          type: ["string", "null"]
+        edition:
+          type: ["string", "null"]
+        totalCopies:
+          type: integer
+        availableCopies:
+          type: integer
+        locationShelf:
+          type: ["string", "null"]
+        language:
+          type: ["string", "null"]
+        referenceOnly:
+          type: boolean
+        description:
+          type: ["string", "null"]
+      required:
+        - id
+        - title
+        - author
+        - mainCategory
+        - mainCategoryDisplay
+        - subCategory
+        - totalCopies
+        - availableCopies
+        - referenceOnly
+
+    BookPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookResponse"
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        number:
+          type: integer
+        size:
+          type: integer
+      required:
+        - content
+        - totalElements
+        - totalPages
+        - number
+        - size
+
+    CategoryNode:
+      type: object
+      properties:
+        main:
+          type: string
+        displayName:
+          type: string
+        subcategories:
+          type: array
+          items:
+            type: string
+      required:
+        - main
+        - displayName
+        - subcategories
+
+    CategoryTree:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryNode"
+      required:
+        - categories
+
+    CheckoutRequest:
+      type: object
+      properties:
+        bookId:
+          type: integer
+        userId:
+          type: integer
+      required:
+        - bookId
+        - userId
+
+    LoanResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookId:
+          type: integer
+        bookTitle:
+          type: string
+        bookAuthor:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        checkoutDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        returnedDate:
+          type: ["string", "null"]
+          format: date
+        fineAmount:
+          type: number
+        finePaid:
+          type: boolean
+        renewedCount:
+          type: integer
+        status:
+          type: string
+          enum: [ACTIVE, RETURNED, OVERDUE, RENEWED]
+      required:
+        - id
+        - bookId
+        - bookTitle
+        - bookAuthor
+        - userId
+        - userName
+        - checkoutDate
+        - dueDate
+        - fineAmount
+        - finePaid
+        - renewedCount
+        - status
+
+    LoanPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoanResponse"
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        number:
+          type: integer
+        size:
+          type: integer
+      required:
+        - content
+        - totalElements
+        - totalPages
+        - number
+        - size
+
+    ReservationRequest:
+      type: object
+      properties:
+        bookId:
+          type: integer
+      required:
+        - bookId
+
+    ReservationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookId:
+          type: integer
+        bookTitle:
+          type: string
+        bookAuthor:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, READY, FULFILLED, EXPIRED, CANCELLED]
+        expiryDate:
+          type: ["string", "null"]
+          format: date
+        queuePosition:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - bookId
+        - bookTitle
+        - bookAuthor
+        - userId
+        - userName
+        - status
+        - queuePosition
+
+    DashboardStats:
+      type: object
+      properties:
+        totalBooks:
+          type: integer
+        availableBooks:
+          type: integer
+        totalUsers:
+          type: integer
+        activeLoans:
+          type: integer
+        overdueLoans:
+          type: integer
+        pendingReservations:
+          type: integer
+        categoryStats:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        recentActivity:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required:
+        - totalBooks
+        - availableBooks
+        - totalUsers
+        - activeLoans
+        - overdueLoans
+        - pendingReservations
+        - categoryStats
+        - recentActivity
+
+    RecommendationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+      required:
+        - title
+        - author
+
+    RecommendationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        status:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - author
+        - status
+        - userId
+        - userName
+
+    ChangeRoleRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [ROLE_ADMIN, ROLE_LIBRARIAN, ROLE_FACULTY, ROLE_COLLEGE_STUDENT, ROLE_SCHOOL_STUDENT, ROLE_GENERAL_PATRON]
+      required:
+        - role
+
+    AuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: ["integer", "null"]
+        action:
+          type: string
+        entityType:
+          type: ["string", "null"]
+        entityId:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - id
+        - action
+        - timestamp
+
+    ApiError:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+      required:
+        - status
+        - error
+        - message

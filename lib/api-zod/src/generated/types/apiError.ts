@@ -6,7 +6,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface HealthStatus {
-  status: string;
-  service?: string;
+export interface ApiError {
+  timestamp?: Date;
+  status: number;
+  error: string;
+  message: string;
+  path?: string;
 }

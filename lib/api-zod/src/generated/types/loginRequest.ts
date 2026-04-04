@@ -6,7 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface HealthStatus {
-  status: string;
-  service?: string;
+export interface LoginRequest {
+  email: string;
+  password: string;
 }

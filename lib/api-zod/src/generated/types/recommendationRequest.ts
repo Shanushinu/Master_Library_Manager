@@ -6,7 +6,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface HealthStatus {
-  status: string;
-  service?: string;
+export interface RecommendationRequest {
+  title: string;
+  author: string;
+  /** @nullable */
+  isbn?: string | null;
+  /** @nullable */
+  reason?: string | null;
 }
