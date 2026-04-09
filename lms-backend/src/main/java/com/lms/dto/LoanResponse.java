@@ -10,6 +10,7 @@ public record LoanResponse(
     Long bookId,
     String bookTitle,
     String bookAuthor,
+    Long bookCopyId,
     Long userId,
     String userName,
     LocalDate checkoutDate,
@@ -17,7 +18,7 @@ public record LoanResponse(
     LocalDate returnedDate,
     BigDecimal fineAmount,
     boolean finePaid,
-    int renewedCount,
+    int renewalCount,
     String status
 ) {
     public static LoanResponse from(Loan loan) {
@@ -26,6 +27,7 @@ public record LoanResponse(
             loan.getBook().getId(),
             loan.getBook().getTitle(),
             loan.getBook().getAuthor(),
+            loan.getBookCopy() != null ? loan.getBookCopy().getId() : null,
             loan.getUser().getId(),
             loan.getUser().getName(),
             loan.getCheckoutDate(),
@@ -33,7 +35,7 @@ public record LoanResponse(
             loan.getReturnedDate(),
             loan.getFineAmount(),
             loan.isFinePaid(),
-            loan.getRenewedCount(),
+            loan.getRenewalCount(),
             loan.getStatus().name()
         );
     }

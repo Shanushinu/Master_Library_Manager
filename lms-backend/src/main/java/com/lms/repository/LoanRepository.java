@@ -43,4 +43,25 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     List<Loan> findLoansDueSoon(@Param("userId") Long userId,
                                  @Param("start") LocalDate start,
                                  @Param("end") LocalDate end);
+
+    @Query("SELECT l FROM Loan l WHERE l.checkoutDate BETWEEN :from AND :to")
+    List<Loan> findByCheckoutDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("SELECT l FROM Loan l WHERE l.dueDate BETWEEN :start AND :end AND l.returnedDate IS NULL")
+    List<Loan> findAllLoansDueSoon(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    @Query("SELECT l.book.id, COUNT(l) as cnt FROM Loan l GROUP BY l.book.id ORDER BY cnt DESC")
+    List<Object[]> findTopBorrowedBooks(Pageable pageable);
+
+    @Query("SELECT l.user.id, COUNT(l) as cnt FROM Loan l WHERE l.returnedDate IS NOT NULL GROUP BY l.user.id ORDER BY cnt DESC")
+    List<Object[]> findMostActiveMembers(Pageable pageable);
+
+    @Query("SELECT b.genre, COUNT(l) FROM Loan l JOIN l.book b WHERE b.genre IS NOT NULL GROUP BY b.genre ORDER BY COUNT(l) DESC")
+    List<Object[]> getGenreStats();
+
+    @Query("SELECT MONTH(l.checkoutDate), COUNT(l) FROM Loan l WHERE YEAR(l.checkoutDate) = :year GROUP BY MONTH(l.checkoutDate) ORDER BY MONTH(l.checkoutDate)")
+    List<Object[]> getMonthlyLoanStats(@Param("year") int year);
+
+    @Query("SELECT COUNT(l) FROM Loan l WHERE l.user.id = :userId AND l.status = 'RETURNED'")
+    long countReturnedByUserId(@Param("userId") Long userId);
 }

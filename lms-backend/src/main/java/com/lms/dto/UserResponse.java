@@ -2,6 +2,7 @@ package com.lms.dto;
 
 import com.lms.model.User;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record UserResponse(
@@ -10,8 +11,11 @@ public record UserResponse(
     String name,
     String phone,
     String role,
+    String studentId,
     String collegeName,
     String schoolGrade,
+    LocalDate membershipExpiry,
+    boolean isActive,
     boolean enabled,
     LocalDateTime createdAt
 ) {
@@ -22,8 +26,11 @@ public record UserResponse(
             user.getName(),
             user.getPhone(),
             user.getRole().name(),
+            user.getStudentId(),
             user.getCollegeName(),
             user.getSchoolGrade(),
+            user.getMembershipExpiry(),
+            user.isActive(),
             user.isEnabled(),
             user.getCreatedAt()
         );

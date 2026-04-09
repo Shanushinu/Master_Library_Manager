@@ -35,7 +35,21 @@ public class AuthService {
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.email());
         String token = jwtUtil.generateToken(userDetails, user.getRole().name(), user.getId());
-        return new LoginResponse(token, user.getEmail(), user.getName(), user.getRole().name(), user.getId());
+        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
+        return new LoginResponse(token, refreshToken, user.getEmail(), user.getName(), user.getRole().name(), user.getId());
+    }
+
+    public LoginResponse refresh(String refreshToken) {
+        String email = jwtUtil.extractUsername(refreshToken);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+        if (!jwtUtil.isTokenValid(refreshToken, userDetails)) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String newToken = jwtUtil.generateToken(userDetails, user.getRole().name(), user.getId());
+        String newRefreshToken = jwtUtil.generateRefreshToken(userDetails);
+        return new LoginResponse(newToken, newRefreshToken, user.getEmail(), user.getName(), user.getRole().name(), user.getId());
     }
 
     public UserResponse register(RegisterRequest request) {
@@ -54,9 +68,11 @@ public class AuthService {
             .name(request.name())
             .phone(request.phone())
             .role(role)
+            .studentId(request.studentId())
             .collegeName(request.collegeName())
             .schoolGrade(request.schoolGrade())
             .parentEmail(request.parentEmail())
+            .membershipExpiry(request.membershipExpiry())
             .build();
         return UserResponse.from(userRepository.save(user));
     }

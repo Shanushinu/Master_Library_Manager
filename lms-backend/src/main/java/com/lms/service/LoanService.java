@@ -6,12 +6,14 @@ import com.lms.model.Book;
 import com.lms.model.Loan;
 import com.lms.model.User;
 import com.lms.model.enums.LoanStatus;
+import com.lms.model.enums.NotificationType;
 import com.lms.model.enums.UserRole;
 import com.lms.repository.BookRepository;
 import com.lms.repository.LoanRepository;
 import com.lms.repository.ReservationRepository;
 import com.lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,9 +34,16 @@ public class LoanService {
     private final UserRepository userRepository;
     private final ReservationRepository reservationRepository;
     private final AuditService auditService;
+    private final FineService fineService;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
 
-    private static final BigDecimal FINE_RATE_PER_DAY = new BigDecimal("0.50");
-    private static final BigDecimal MAX_FINE = new BigDecimal("50.00");
+    @Value("${app.fine.rate-per-day:2.00}")
+    private BigDecimal fineRatePerDay;
+
+    @Value("${app.fine.max-fine:500.00}")
+    private BigDecimal maxFine;
+
     private static final BigDecimal FINE_THRESHOLD = new BigDecimal("10.00");
 
     public LoanResponse checkout(Long bookId, Long userId, Long librarianId) {
@@ -43,17 +52,14 @@ public class LoanService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
-        // School students cannot borrow reference-only books
         if (book.isReferenceOnly() && user.getRole() == UserRole.ROLE_SCHOOL_STUDENT) {
             throw new BorrowingLimitExceededException("School students cannot borrow reference-only books");
         }
 
-        // Check available copies
         if (book.getAvailableCopies() <= 0) {
             throw new BookNotAvailableException("Book '" + book.getTitle() + "' is not available");
         }
 
-        // Check max loans per role
         long activeLoans = loanRepository.countByUserIdAndReturnedDateIsNull(userId);
         int maxLoans = getMaxLoans(user.getRole());
         if (activeLoans >= maxLoans) {
@@ -61,11 +67,10 @@ public class LoanService {
                 "User has reached maximum loan limit of " + maxLoans + " books for role " + user.getRole());
         }
 
-        // Check outstanding fines > $10
         BigDecimal outstandingFine = calculateTotalOutstandingFine(userId);
         if (outstandingFine.compareTo(FINE_THRESHOLD) > 0) {
             throw new OverdueFineException(
-                "User has outstanding fines of $" + outstandingFine + ". Please clear fines before borrowing.");
+                "User has outstanding fines of ₹" + outstandingFine + ". Please clear fines before borrowing.");
         }
 
         LocalDate checkoutDate = LocalDate.now();
@@ -105,6 +110,15 @@ public class LoanService {
         loan.setFineAmount(fine);
         loan.setStatus(LoanStatus.RETURNED);
 
+        // Create fine record if there's a fine
+        if (fine.compareTo(BigDecimal.ZERO) > 0) {
+            long daysOverdue = ChronoUnit.DAYS.between(loan.getDueDate(), today);
+            fineService.createFine(loan, fine, "Overdue by " + daysOverdue + " days");
+            notificationService.createNotification(loan.getUser().getId(),
+                "Fine Generated", "A fine of ₹" + fine + " has been charged for '" + loan.getBook().getTitle() + "'",
+                NotificationType.FINE_ADDED);
+        }
+
         Book book = loan.getBook();
         book.setAvailableCopies(book.getAvailableCopies() + 1);
         bookRepository.save(book);
@@ -117,10 +131,17 @@ public class LoanService {
             res.setExpiryDate(today.plusDays(3));
             res.setNotifiedAt(java.time.LocalDateTime.now());
             reservationRepository.save(res);
+
+            // Notify the user
+            notificationService.createNotification(res.getUser().getId(),
+                "Reservation Ready", "Your reserved book '" + book.getTitle() + "' is now available!",
+                NotificationType.RESERVATION_READY);
+            emailService.sendReservationReady(
+                res.getUser().getEmail(), res.getUser().getName(), book.getTitle());
         });
 
         auditService.log(librarianId, "RETURN", "LOAN", loanId,
-            "Returned '" + book.getTitle() + "'. Fine: $" + fine);
+            "Returned '" + book.getTitle() + "'. Fine: ₹" + fine);
 
         return LoanResponse.from(savedLoan);
     }
@@ -137,12 +158,11 @@ public class LoanService {
         }
 
         int maxRenewals = getMaxRenewals(loan.getUser().getRole());
-        if (loan.getRenewedCount() >= maxRenewals) {
+        if (loan.getRenewalCount() >= maxRenewals) {
             throw new RenewalNotAllowedException(
                 "Maximum renewals (" + maxRenewals + ") reached for your role");
         }
 
-        // Cannot renew if book has active reservation
         long activeReservations = reservationRepository.countByBookIdAndStatus(
             loan.getBook().getId(), com.lms.model.enums.ReservationStatus.PENDING);
         if (activeReservations > 0) {
@@ -151,7 +171,7 @@ public class LoanService {
 
         int additionalDays = getLoanDays(loan.getUser().getRole());
         loan.setDueDate(loan.getDueDate().plusDays(additionalDays));
-        loan.setRenewedCount(loan.getRenewedCount() + 1);
+        loan.setRenewalCount(loan.getRenewalCount() + 1);
         loan.setStatus(LoanStatus.RENEWED);
 
         return LoanResponse.from(loanRepository.save(loan));
@@ -176,15 +196,14 @@ public class LoanService {
         if (loan.getReturnedDate() == null) return BigDecimal.ZERO;
         if (!loan.getReturnedDate().isAfter(loan.getDueDate())) return BigDecimal.ZERO;
 
-        // Faculty: no fine if overdue < 7 days
         if (loan.getUser().getRole() == UserRole.ROLE_FACULTY) {
             long daysOverdue = ChronoUnit.DAYS.between(loan.getDueDate(), loan.getReturnedDate());
             if (daysOverdue < 7) return BigDecimal.ZERO;
         }
 
         long daysOverdue = ChronoUnit.DAYS.between(loan.getDueDate(), loan.getReturnedDate());
-        BigDecimal fine = FINE_RATE_PER_DAY.multiply(BigDecimal.valueOf(daysOverdue));
-        return fine.min(MAX_FINE);
+        BigDecimal fine = fineRatePerDay.multiply(BigDecimal.valueOf(daysOverdue));
+        return fine.min(maxFine);
     }
 
     private BigDecimal calculateTotalOutstandingFine(Long userId) {
@@ -196,25 +215,28 @@ public class LoanService {
 
     private int getMaxLoans(UserRole role) {
         return switch (role) {
-            case ROLE_COLLEGE_STUDENT -> 5;
+            case ROLE_COLLEGE_STUDENT, ROLE_STUDENT -> 5;
             case ROLE_SCHOOL_STUDENT -> 3;
-            case ROLE_FACULTY -> 10;
+            case ROLE_FACULTY, ROLE_ADMIN, ROLE_LIBRARIAN -> 10;
+            case ROLE_MEMBER -> 4;
             default -> 4;
         };
     }
 
     private int getLoanDays(UserRole role) {
         return switch (role) {
-            case ROLE_COLLEGE_STUDENT -> 21;
+            case ROLE_COLLEGE_STUDENT, ROLE_STUDENT -> 14;
             case ROLE_SCHOOL_STUDENT -> 14;
-            case ROLE_FACULTY -> 30;
+            case ROLE_FACULTY, ROLE_ADMIN, ROLE_LIBRARIAN -> 30;
+            case ROLE_MEMBER -> 21;
             default -> 21;
         };
     }
 
     private int getMaxRenewals(UserRole role) {
         return switch (role) {
-            case ROLE_FACULTY -> 2;
+            case ROLE_FACULTY, ROLE_ADMIN, ROLE_LIBRARIAN -> 3;
+            case ROLE_STUDENT, ROLE_COLLEGE_STUDENT -> 2;
             default -> 1;
         };
     }

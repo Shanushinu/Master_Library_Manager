@@ -1,0 +1,3 @@
+@echo off
+echo Starting Library Management System Frontend...
+start "LMS Frontend" cmd /k "cd /d "%~dp0frontend" && pnpm install && pnpm dev"

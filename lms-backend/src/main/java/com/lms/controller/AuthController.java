@@ -1,9 +1,6 @@
 package com.lms.controller;
 
-import com.lms.dto.LoginRequest;
-import com.lms.dto.LoginResponse;
-import com.lms.dto.RegisterRequest;
-import com.lms.dto.UserResponse;
+import com.lms.dto.*;
 import com.lms.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,5 +22,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.refreshToken()));
     }
 }

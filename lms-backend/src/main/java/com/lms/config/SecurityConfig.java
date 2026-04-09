@@ -40,23 +40,36 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
+                // Public endpoints
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/healthz").permitAll()
-                .requestMatchers("/books/search", "/books/categories", "/books/category/**", "/books/{id}").authenticated()
+                .requestMatchers("/h2-console/**").permitAll()
+
+                // Admin only
                 .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/analytics/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/audit/**").hasAuthority("ROLE_ADMIN")
+
+                // Admin + Librarian
+                .requestMatchers("/reports/**").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
                 .requestMatchers(HttpMethod.POST, "/books/**").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/books/**").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/books/**").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
-                .requestMatchers("/reports/**").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
+                .requestMatchers("/loans/checkout", "/loans/*/return").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
+
+                // Recommendations
                 .requestMatchers("/recommendations/pending").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
                 .requestMatchers("/recommendations").hasAnyAuthority("ROLE_FACULTY", "ROLE_LIBRARIAN", "ROLE_ADMIN")
-                .requestMatchers("/loans/checkout", "/loans/*/return").hasAnyAuthority("ROLE_LIBRARIAN", "ROLE_ADMIN")
-                .requestMatchers("/audit/**").hasAuthority("ROLE_ADMIN")
+
+                // Everything else requires authentication
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Allow H2 console frames
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
     }
@@ -64,6 +77,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
         config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

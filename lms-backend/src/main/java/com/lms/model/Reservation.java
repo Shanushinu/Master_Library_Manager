@@ -4,12 +4,18 @@ import com.lms.model.enums.ReservationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "reservations")
+@Table(name = "reservations", indexes = {
+    @Index(name = "idx_reservations_user", columnList = "user_id"),
+    @Index(name = "idx_reservations_book_status", columnList = "book_id, status"),
+    @Index(name = "idx_reservations_status", columnList = "status"),
+    @Index(name = "idx_reservations_expires", columnList = "expiryDate")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -34,10 +40,14 @@ public class Reservation {
 
     private LocalDate expiryDate;
 
+    @Builder.Default
+    private int queuePosition = 1;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    private LocalDateTime notifiedAt;
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 
-    private int queuePosition;
+    private LocalDateTime notifiedAt;
 }

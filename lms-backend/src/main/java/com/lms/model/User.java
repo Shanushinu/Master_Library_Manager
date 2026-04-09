@@ -8,12 +8,17 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+    @Index(name = "idx_users_role", columnList = "role"),
+    @Index(name = "idx_users_student_id", columnList = "studentId"),
+    @Index(name = "idx_users_is_active", columnList = "isActive")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -32,13 +37,18 @@ public class User {
     private String passwordHash;
 
     @NotBlank
+    @Column(nullable = false, length = 150)
     private String name;
 
+    @Column(length = 20)
     private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
+
+    @Column(length = 50)
+    private String studentId;
 
     private String collegeName;
 
@@ -47,6 +57,15 @@ public class User {
     @Email
     private String parentEmail;
 
+    @Column(length = 500)
+    private String avatarUrl;
+
+    private LocalDate membershipExpiry;
+
+    @Builder.Default
+    private boolean isActive = true;
+
+    @Builder.Default
     private boolean enabled = true;
 
     @CreationTimestamp
@@ -64,4 +83,24 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Reservation> reservations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Notification> notifications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<BookReview> reviews = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<ReadingGoal> readingGoals = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Membership> memberships = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<RefreshToken> refreshTokens = new ArrayList<>();
 }

@@ -30,9 +30,11 @@ public class BookService {
             .isbn(request.isbn())
             .mainCategory(mainCat)
             .subCategory(request.subCategory())
+            .genre(request.genre())
             .publicationYear(request.publicationYear())
             .publisher(request.publisher())
             .edition(request.edition())
+            .coverUrl(request.coverUrl())
             .totalCopies(request.totalCopies())
             .availableCopies(request.totalCopies())
             .locationShelf(request.locationShelf())
@@ -52,9 +54,11 @@ public class BookService {
         book.setIsbn(request.isbn());
         book.setMainCategory(mainCat);
         book.setSubCategory(request.subCategory());
+        book.setGenre(request.genre());
         book.setPublicationYear(request.publicationYear());
         book.setPublisher(request.publisher());
         book.setEdition(request.edition());
+        book.setCoverUrl(request.coverUrl());
         book.setTotalCopies(request.totalCopies());
         book.setLocationShelf(request.locationShelf());
         book.setLanguage(request.language() != null ? request.language() : "English");

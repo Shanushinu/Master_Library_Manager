@@ -1,0 +1,3 @@
+@echo off
+echo Starting Library Management System Backend...
+start "LMS Backend" cmd /k "cd /d "%~dp0lms-backend" && mvn spring-boot:run"
